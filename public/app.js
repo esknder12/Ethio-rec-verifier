@@ -1,5 +1,5 @@
 /**
- * Dashboard for the Ethiopian Receipt Verifier.
+ * Ethio Rec Verifier — site behaviour.
  * Talks to the same-origin API only, so it works behind any proxy.
  */
 
@@ -20,13 +20,15 @@ const catalogBody = $("catalogBody");
 
 let demoReceipts = [];
 
-/* ---------------- rendering helpers ---------------- */
+/* ------------------------------------------------------------------
+   rendering helpers
+   ------------------------------------------------------------------ */
 
 const clear = (node) => {
   while (node.firstChild) node.removeChild(node.firstChild);
 };
 
-const addResult = (parent, receiptId, ok, message) => {
+const addResult = (receiptId, ok, message) => {
   const box = document.createElement("div");
   box.className = `result ${ok ? "result-ok" : "result-bad"}`;
 
@@ -42,7 +44,18 @@ const addResult = (parent, receiptId, ok, message) => {
     box.appendChild(msg);
   }
 
-  parent.appendChild(box);
+  resultsEl.appendChild(box);
+};
+
+const resetResults = (message) => {
+  clear(resultsEl);
+  const p = document.createElement("p");
+  p.className = "empty";
+  p.textContent = message;
+  resultsEl.appendChild(p);
+  summaryEl.hidden = true;
+  summaryEl.replaceChildren();
+  rawWrap.hidden = true;
 };
 
 const addSummaryChip = (label, kind) => {
@@ -57,7 +70,9 @@ const showRaw = (payload) => {
   rawOut.textContent = JSON.stringify(payload, null, 2);
 };
 
-/* ---------------- request building ---------------- */
+/* ------------------------------------------------------------------
+   request building
+   ------------------------------------------------------------------ */
 
 const buildVerification = () => {
   const mode = document.querySelector('input[name="mode"]:checked').value;
@@ -83,34 +98,37 @@ const postJson = async (url, body) => {
   } catch {
     payload = { error: `Unexpected non-JSON response (HTTP ${res.status})` };
   }
-  return { status: res.status, ok: res.ok, payload };
+  return { payload };
 };
 
-/* ---------------- verify ---------------- */
+/* ------------------------------------------------------------------
+   verification
+   ------------------------------------------------------------------ */
 
-const renderSingle = (payload, receipt) => {
-  if (payload.error) {
-    addResult(resultsEl, receipt, false, payload.error);
-    return;
-  }
-  addResult(resultsEl, receipt, true, payload.message ?? "Valid receipt.");
+const setBusy = (busy) => {
+  verifyBtn.disabled = busy;
+  if (runAllBtn) runAllBtn.disabled = busy;
+  verifyBtn.innerHTML = busy
+    ? '<span class="spinner"></span>Verifying…'
+    : "Verify";
 };
 
 const renderBatch = (payload) => {
   for (const item of payload.result ?? []) {
-    addResult(resultsEl, item, true, "Valid receipt.");
+    addResult(item, true, "Valid receipt.");
   }
   for (const item of payload.failed ?? []) {
-    addResult(resultsEl, item.receiptId, false, item.error);
+    addResult(item.receiptId, false, item.error);
   }
-};
 
-const setBusy = (busy) => {
-  verifyBtn.disabled = busy;
-  runAllBtn.disabled = busy;
-  verifyBtn.innerHTML = busy
-    ? '<span class="spinner"></span>Verifying…'
-    : "Verify";
+  if (payload.summary) {
+    summaryEl.hidden = false;
+    addSummaryChip(`total ${payload.summary.total}`, "pill-muted");
+    addSummaryChip(`valid ${payload.summary.valid}`, "pill-ok");
+    if (payload.summary.invalid > 0) {
+      addSummaryChip(`invalid ${payload.summary.invalid}`, "pill-demo");
+    }
+  }
 };
 
 const verify = async () => {
@@ -120,23 +138,13 @@ const verify = async () => {
     .filter(Boolean);
 
   if (lines.length === 0) {
-    clear(resultsEl);
-    summaryEl.hidden = true;
-    rawWrap.hidden = true;
-    addResult(resultsEl, "Nothing to verify", false, "Enter at least one receipt ID or URL.");
+    resetResults("Enter at least one receipt ID or URL.");
     return;
   }
 
   const verification = buildVerification();
-
   if (typeof verification === "object" && Object.keys(verification).length === 0) {
-    clear(resultsEl);
-    summaryEl.hidden = true;
-    rawWrap.hidden = true;
-    addResult(
-      resultsEl,
-      "No fields selected",
-      false,
+    resetResults(
       "Pick at least one field to check, or switch to “All configured fields”.",
     );
     return;
@@ -147,6 +155,7 @@ const verify = async () => {
 
   clear(resultsEl);
   summaryEl.hidden = true;
+  summaryEl.replaceChildren();
   rawWrap.hidden = true;
   setBusy(true);
 
@@ -156,7 +165,11 @@ const verify = async () => {
         ...body,
         receipt: lines[0],
       });
-      renderSingle(payload, lines[0]);
+      if (payload.error) {
+        addResult(lines[0], false, payload.error);
+      } else {
+        addResult(lines[0], true, payload.message ?? "Valid receipt.");
+      }
       showRaw(payload);
     } else {
       const { payload } = await postJson("/api/verify/batch", {
@@ -165,24 +178,17 @@ const verify = async () => {
       });
       renderBatch(payload);
       showRaw(payload);
-
-      if (payload.summary) {
-        summaryEl.hidden = false;
-        addSummaryChip(`total ${payload.summary.total}`, "pill-muted");
-        addSummaryChip(`valid ${payload.summary.valid}`, "pill-ok");
-        if (payload.summary.invalid > 0) {
-          addSummaryChip(`invalid ${payload.summary.invalid}`, "pill-demo");
-        }
-      }
     }
   } catch (err) {
-    addResult(resultsEl, "Request failed", false, err.message);
+    addResult("Request failed", false, err.message);
   } finally {
     setBusy(false);
   }
 };
 
-/* ---------------- demo catalog ---------------- */
+/* ------------------------------------------------------------------
+   demo catalog
+   ------------------------------------------------------------------ */
 
 const renderCatalog = (receipts) => {
   clear(catalogBody);
@@ -192,26 +198,27 @@ const renderCatalog = (receipts) => {
 
     const idTd = document.createElement("td");
     const idBtn = document.createElement("button");
+    idBtn.type = "button";
     idBtn.className = "catalog-id";
     idBtn.textContent = r.id;
     idBtn.title = "Load this receipt";
     idBtn.addEventListener("click", () => {
       receiptInput.value = r.id;
       receiptInput.focus();
+      receiptInput.scrollIntoView({ block: "center" });
     });
     idTd.appendChild(idBtn);
 
-    const providerTd = document.createElement("td");
-    providerTd.textContent = r.provider;
-
-    const amountTd = document.createElement("td");
-    amountTd.textContent = r.values.amount;
-
-    const nameTd = document.createElement("td");
-    nameTd.textContent = r.values.recipientName;
-
-    const dateTd = document.createElement("td");
-    dateTd.textContent = r.values.date;
+    const cells = [
+      r.provider,
+      r.values.amount,
+      r.values.recipientName,
+      r.values.date,
+    ].map((value) => {
+      const td = document.createElement("td");
+      td.textContent = value;
+      return td;
+    });
 
     const expTd = document.createElement("td");
     const tag = document.createElement("span");
@@ -220,7 +227,7 @@ const renderCatalog = (receipts) => {
     tag.title = r.note;
     expTd.appendChild(tag);
 
-    tr.append(idTd, providerTd, amountTd, nameTd, dateTd, expTd);
+    tr.append(idTd, ...cells, expTd);
     catalogBody.appendChild(tr);
   }
 };
@@ -229,21 +236,21 @@ const loadDemo = async () => {
   try {
     const res = await fetch("/api/demo/receipts");
     if (!res.ok) return;
+
     const data = await res.json();
     demoReceipts = data.receipts ?? [];
     if (demoReceipts.length === 0) return;
 
     renderCatalog(demoReceipts);
     catalogCard.hidden = false;
+    $("demoBanner").hidden = false;
 
     const pill = document.createElement("span");
     pill.className = "pill pill-demo";
     pill.textContent = "demo mode";
     $("statusPills").appendChild(pill);
-
-    $("demoBanner").hidden = false;
   } catch {
-    /* demo catalog is optional */
+    /* the demo catalog is optional */
   }
 };
 
@@ -260,7 +267,48 @@ const loadHealth = async () => {
   }
 };
 
-/* ---------------- wiring ---------------- */
+/* ------------------------------------------------------------------
+   code samples
+   ------------------------------------------------------------------ */
+
+const initCodeTabs = () => {
+  const tabs = document.querySelectorAll(".tab");
+  const panels = document.querySelectorAll(".panel");
+
+  for (const tab of tabs) {
+    tab.addEventListener("click", () => {
+      for (const t of tabs) t.classList.toggle("is-active", t === tab);
+      for (const p of panels) {
+        p.classList.toggle("is-active", p.dataset.panel === tab.dataset.tab);
+      }
+    });
+  }
+
+  const copyBtn = $("copyBtn");
+  copyBtn?.addEventListener("click", async () => {
+    const active = document.querySelector(".panel.is-active code");
+    if (!active) return;
+
+    try {
+      await navigator.clipboard.writeText(active.innerText);
+      copyBtn.textContent = "Copied";
+    } catch {
+      copyBtn.textContent = "Copy failed";
+    }
+    setTimeout(() => (copyBtn.textContent = "Copy"), 1600);
+  });
+};
+
+const fillApiBase = () => {
+  const origin = window.location.origin;
+  for (const el of document.querySelectorAll(".api-base")) {
+    el.textContent = origin;
+  }
+};
+
+/* ------------------------------------------------------------------
+   wiring
+   ------------------------------------------------------------------ */
 
 for (const radio of document.querySelectorAll('input[name="mode"]')) {
   radio.addEventListener("change", () => {
@@ -272,16 +320,10 @@ verifyBtn.addEventListener("click", verify);
 
 clearBtn.addEventListener("click", () => {
   receiptInput.value = "";
-  clear(resultsEl);
-  const p = document.createElement("p");
-  p.className = "empty";
-  p.textContent = "No verification run yet.";
-  resultsEl.appendChild(p);
-  summaryEl.hidden = true;
-  rawWrap.hidden = true;
+  resetResults("No verification run yet.");
 });
 
-runAllBtn.addEventListener("click", () => {
+runAllBtn?.addEventListener("click", () => {
   if (demoReceipts.length === 0) return;
   receiptInput.value = demoReceipts.map((r) => r.id).join("\n");
   verify();
@@ -291,5 +333,7 @@ receiptInput.addEventListener("keydown", (e) => {
   if ((e.metaKey || e.ctrlKey) && e.key === "Enter") verify();
 });
 
+fillApiBase();
+initCodeTabs();
 loadHealth();
 loadDemo();
