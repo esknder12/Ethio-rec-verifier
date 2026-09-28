@@ -1,506 +1,749 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Ethio Rec Verifier — Verify Ethiopian payment receipts by API</title>
+    <title>Ethio Rec Verifier — Verify Ethiopian payment receipts</title>
     <meta
       name="description"
-      content="Verify Telebirr, CBE, Bank of Abyssinia and Amhara Bank payment receipts against your expected transaction details. Open source, MIT licensed."
+      content="Verify Telebirr, CBE, Bank of Abyssinia and Amhara Bank payment receipts from your server. Single checks, batch runs, open source under MIT."
     />
-    <meta name="theme-color" content="#0b7a4b" />
+    <meta name="theme-color" content="#07090c" />
+
+    <meta property="og:title" content="Ethio Rec Verifier" />
+    <meta
+      property="og:description"
+      content="Verify Ethiopian payment receipts with one API call. Open source, MIT licensed."
+    />
+    <meta property="og:type" content="website" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
     <link rel="stylesheet" href="/styles.css" />
     <link
       rel="icon"
-      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧾</text></svg>"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='88'>🧾</text></svg>"
     />
   </head>
   <body>
-    <a class="skip" href="#verifier">Skip to verifier</a>
+    <a class="skip" href="#verify">Skip to verifier</a>
 
-    <nav class="nav">
-      <div class="container nav-inner">
-        <a class="brand" href="#top">
-          <span class="brand-mark" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <!-- ==================== announcement ==================== -->
+    <div class="announce" id="announce">
+      <div class="shell announce-inner">
+        <span class="announce-pill">v1.0</span>
+        <p>
+          Batch verification is live — check up to ten receipts in one request.
+        </p>
+        <a href="#api">See the API <span aria-hidden="true">→</span></a>
+        <button
+          class="announce-close"
+          id="announceClose"
+          type="button"
+          aria-label="Dismiss announcement"
+        >
+          ✕
+        </button>
+      </div>
+    </div>
+
+    <!-- ==================== nav ==================== -->
+    <header class="nav" id="nav">
+      <div class="shell nav-inner">
+        <a class="logo" href="#top">
+          <span class="logo-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M5 3h14v18l-2.5-1.6L14 21l-2-1.6L10 21l-2.5-1.6L5 21V3Z" />
               <path d="M9 8h6M9 12h6M9 16h3" />
             </svg>
           </span>
-          <span class="brand-text">
-            <strong>Ethio Rec Verifier</strong>
-            <small>Receipt verification API</small>
-          </span>
+          <span class="logo-text">Ethio Rec Verifier</span>
+          <span class="tag-beta">OSS</span>
         </a>
 
-        <div class="nav-links">
-          <a href="#verifier">Verifier</a>
-          <a href="#providers">Providers</a>
+        <nav class="nav-menu" aria-label="Main">
+          <a href="#verify">Verifier</a>
+          <a href="#platforms">Platforms</a>
           <a href="#api">API</a>
-          <a href="#features">Features</a>
-        </div>
+          <a href="#modes">Modes</a>
+          <a href="#deploy">Deploy</a>
+        </nav>
 
-        <div class="nav-side">
-          <div class="pills" id="statusPills">
-            <span class="pill pill-muted" id="pillHealth">checking…</span>
-          </div>
-          <a
-            class="btn btn-ghost btn-sm"
-            href="https://github.com/esknder12/Ethio-rec-verifier"
-            target="_blank"
-            rel="noopener"
-            >GitHub</a
-          >
-        </div>
-      </div>
-    </nav>
-
-    <div class="container">
-      <div class="demo-banner" id="demoBanner" hidden>
-        <span class="demo-dot" aria-hidden="true"></span>
-        <div>
-          <strong>Demo mode is on.</strong> Receipts resolve to
-          <em>synthetic</em> data — nothing is sent to a bank and no receipt is
-          genuinely verified. Unset <code>DEMO_MODE</code> for real checks.
-        </div>
-      </div>
-    </div>
-
-    <!-- ============ hero ============ -->
-    <header class="hero" id="top">
-      <div class="container hero-inner">
-        <div class="hero-copy">
-          <span class="eyebrow">
-            <span class="eyebrow-dot" aria-hidden="true"></span>
-            Open source · MIT licensed
+        <div class="nav-actions">
+          <span class="pill pill-live" id="pillHealth">
+            <span class="pulse" aria-hidden="true"></span>checking
           </span>
-
-          <h1>
-            Verify Ethiopian payment receipts
-            <span class="accent">with one API call</span>
-          </h1>
-
-          <p class="lede">
-            Confirm that a Telebirr, CBE, Bank of Abyssinia or Amhara Bank
-            payment actually happened — and that the amount, recipient and date
-            are exactly what you expected.
-          </p>
-
-          <div class="cta-row">
-            <a class="btn btn-primary btn-lg" href="#verifier">Try the verifier</a>
-            <a class="btn btn-outline btn-lg" href="#api">Read the API docs</a>
-          </div>
-
-          <dl class="stats">
-            <div>
-              <dt>Providers</dt>
-              <dd>4</dd>
-            </div>
-            <div>
-              <dt>Batch speedup</dt>
-              <dd>~10×</dd>
-            </div>
-            <div>
-              <dt>Fields checked</dt>
-              <dd>5</dd>
-            </div>
-            <div>
-              <dt>Licence</dt>
-              <dd>MIT</dd>
-            </div>
-          </dl>
+          <a class="btn btn-primary btn-sm" href="#verify">Verify a payment</a>
         </div>
 
-        <div class="hero-visual">
-          <div class="window">
-            <div class="window-bar">
-              <span class="dot dot-r"></span>
-              <span class="dot dot-y"></span>
-              <span class="dot dot-g"></span>
-              <span class="window-title">POST /api/verify</span>
-              <span class="status-ok">200 OK</span>
-            </div>
-            <pre class="window-body"><code><span class="c-punc">{</span>
-  <span class="c-key">"receipt"</span><span class="c-punc">:</span> <span class="c-str">"CJP9OSP9WZ"</span><span class="c-punc">,</span>
-  <span class="c-key">"defaultVerification"</span><span class="c-punc">:</span> <span class="c-bool">true</span>
-<span class="c-punc">}</span>
+        <button class="nav-toggle" id="navToggle" type="button" aria-label="Menu" aria-expanded="false">
+          <span></span><span></span><span></span>
+        </button>
+      </div>
 
-<span class="c-dim">// → 200</span>
-<span class="c-punc">{</span>
-  <span class="c-key">"message"</span><span class="c-punc">:</span> <span class="c-str">"The receipt 'CJP9OSP9WZ'
-              is a valid receipt."</span>
-<span class="c-punc">}</span></code></pre>
-          </div>
-
-          <div class="window window-back" aria-hidden="true">
-            <div class="window-bar">
-              <span class="dot dot-r"></span><span class="dot dot-y"></span><span class="dot dot-g"></span>
-              <span class="window-title">mismatch</span>
-              <span class="status-bad">400</span>
-            </div>
-            <pre class="window-body"><code><span class="c-punc">{</span>
-  <span class="c-key">"error"</span><span class="c-punc">:</span> <span class="c-err">"Mismatch on amount.
-   Expected: 100, Actual: 999.00"</span>
-<span class="c-punc">}</span></code></pre>
-          </div>
-        </div>
+      <div class="nav-drawer" id="navDrawer" hidden>
+        <a href="#verify">Verifier</a>
+        <a href="#platforms">Platforms</a>
+        <a href="#api">API</a>
+        <a href="#modes">Modes</a>
+        <a href="#deploy">Deploy</a>
       </div>
     </header>
 
-    <!-- ============ verifier ============ -->
-    <section class="section" id="verifier">
-      <div class="container">
-        <div class="section-head">
-          <h2>Verify a receipt</h2>
-          <p>
-            Paste a receipt ID or a full receipt URL. Add one per line to verify
-            a batch. Results are checked against the values in your
-            <code>.env</code>.
-          </p>
-        </div>
+    <main id="top">
+      <!-- ==================== hero ==================== -->
+      <section class="hero">
+        <div class="hero-glow" aria-hidden="true"></div>
+        <div class="hero-grid-bg" aria-hidden="true"></div>
 
-        <div class="verify-grid">
-          <div class="card">
-            <label class="field">
-              <span class="field-label">Receipt(s)</span>
-              <textarea
-                id="receiptInput"
-                rows="4"
-                spellcheck="false"
-                placeholder="CJP9OSP9WZ&#10;https://cs.bankofabyssinia.com/slip/?trx=FT25284X11PS79328"
-              ></textarea>
-            </label>
+        <div class="shell hero-inner">
+          <div class="hero-copy">
+            <span class="badge">
+              <span class="pulse" aria-hidden="true"></span>
+              Open source · MIT licensed
+            </span>
 
-            <fieldset class="field">
-              <legend class="field-label">Fields to check</legend>
-              <label class="radio">
-                <input type="radio" name="mode" value="all" checked />
-                <span>All configured fields</span>
-              </label>
-              <label class="radio">
-                <input type="radio" name="mode" value="custom" />
-                <span>Choose fields</span>
-              </label>
+            <h1>
+              Verify payments<span class="dot">.</span>
+            </h1>
 
-              <div class="checks" id="fieldChecks" hidden>
-                <label class="check"><input type="checkbox" value="amount" checked /><span>amount</span></label>
-                <label class="check"><input type="checkbox" value="status" checked /><span>status</span></label>
-                <label class="check"><input type="checkbox" value="recipientName" checked /><span>recipientName</span></label>
-                <label class="check"><input type="checkbox" value="accountNumber" checked /><span>accountNumber</span></label>
-                <label class="check"><input type="checkbox" value="date" checked /><span>date</span></label>
+            <p class="hero-sub">
+              Confirm that a Telebirr, CBE, Bank of Abyssinia or Amhara Bank
+              payment actually happened — and that the amount, recipient and
+              date match what you expected. One endpoint, JSON in and out.
+            </p>
+
+            <div class="hero-cta">
+              <a class="btn btn-primary btn-lg" href="#verify">Verify a payment</a>
+              <a class="btn btn-ghost btn-lg" href="#api">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.7-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0C17.3 4.7 18.3 5 18.3 5c.6 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .3Z"/></svg>
+                Read the docs
+              </a>
+            </div>
+
+            <ul class="hero-trust">
+              <li>No API keys</li>
+              <li>No sign-up</li>
+              <li>Self-hostable</li>
+            </ul>
+          </div>
+
+          <!-- dashboard mock -->
+          <div class="hero-visual">
+            <div class="dash">
+              <div class="dash-bar">
+                <span class="dash-dots" aria-hidden="true"
+                  ><i></i><i></i><i></i
+                ></span>
+                <span class="dash-title">Verification result</span>
+                <span class="dash-live"
+                  ><span class="pulse" aria-hidden="true"></span>live</span
+                >
               </div>
-            </fieldset>
 
-            <label class="check check-inline">
-              <input type="checkbox" id="proxyToggle" />
-              <span>Route Telebirr through the proxy (<code>PROXY</code> env)</span>
-            </label>
+              <div class="dash-body">
+                <div class="dash-row">
+                  <span class="dash-label">Reference</span>
+                  <span class="dash-value mono">CJP9OSP9WZ</span>
+                </div>
+                <div class="dash-row">
+                  <span class="dash-label">Provider</span>
+                  <span class="dash-value"
+                    ><span class="chip chip-telebirr">Telebirr</span></span
+                  >
+                </div>
+                <div class="dash-row">
+                  <span class="dash-label">Amount</span>
+                  <span class="dash-value mono">100.00 ETB</span>
+                </div>
+                <div class="dash-row">
+                  <span class="dash-label">Recipient</span>
+                  <span class="dash-value">Abrham Yalew</span>
+                </div>
+                <div class="dash-row">
+                  <span class="dash-label">Date</span>
+                  <span class="dash-value mono">15-12-2025 10:30</span>
+                </div>
 
-            <div class="actions">
-              <button class="btn btn-primary" id="verifyBtn">Verify</button>
-              <button class="btn" id="clearBtn">Clear</button>
-            </div>
-          </div>
-
-          <div class="card">
-            <div class="card-head">
-              <h3>Result</h3>
-              <div class="summary" id="summary" hidden></div>
-            </div>
-
-            <div id="results" class="results">
-              <p class="empty">No verification run yet.</p>
-            </div>
-
-            <details id="rawWrap" class="raw" hidden>
-              <summary>Raw response</summary>
-              <pre id="rawOut"></pre>
-            </details>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ============ providers ============ -->
-    <section class="section section-alt" id="providers">
-      <div class="container">
-        <div class="section-head">
-          <h2>Supported providers</h2>
-          <p>
-            Receipt IDs and full URLs are auto-detected, so you can pass whatever
-            the customer gives you.
-          </p>
-        </div>
-
-        <div class="grid grid-4">
-          <article class="provider">
-            <span class="monogram monogram-telebirr">T</span>
-            <h3>Telebirr</h3>
-            <p>Ethio Telecom mobile wallet. <code>status</code> is verified here.</p>
-            <code class="sample-id">CJP9OSP9WZ</code>
-          </article>
-
-          <article class="provider">
-            <span class="monogram monogram-cbe">CBE</span>
-            <h3>Commercial Bank of Ethiopia</h3>
-            <p>Both branch receipts (PDF) and mobile receipts (JSON).</p>
-            <code class="sample-id">FT253183LQF089873510</code>
-          </article>
-
-          <article class="provider">
-            <span class="monogram monogram-boa">BOA</span>
-            <h3>Bank of Abyssinia</h3>
-            <p>Online slip lookup. Dates are parsed as <code>MM/DD/YY</code>.</p>
-            <code class="sample-id">FT25284X11PS79328</code>
-          </article>
-
-          <article class="provider">
-            <span class="monogram monogram-ab">AB</span>
-            <h3>Amhara Bank</h3>
-            <p>Transaction lookup by reference ID.</p>
-            <code class="sample-id">AMH123456789</code>
-          </article>
-        </div>
-      </div>
-    </section>
-
-    <!-- ============ api ============ -->
-    <section class="section" id="api">
-      <div class="container">
-        <div class="section-head">
-          <h2>API reference</h2>
-          <p>Three endpoints. JSON in, JSON out. No SDK required.</p>
-        </div>
-
-        <div class="endpoints">
-          <div class="endpoint">
-            <span class="method method-post">POST</span>
-            <code class="path">/api/verify</code>
-            <span class="endpoint-desc">Verify a single receipt</span>
-          </div>
-          <div class="endpoint">
-            <span class="method method-post">POST</span>
-            <code class="path">/api/verify/batch</code>
-            <span class="endpoint-desc">Verify up to 10 receipts in parallel</span>
-          </div>
-          <div class="endpoint">
-            <span class="method method-get">GET</span>
-            <code class="path">/health</code>
-            <span class="endpoint-desc">Service status and demo-mode flag</span>
-          </div>
-        </div>
-
-        <div class="api-grid">
-          <div class="code-block">
-            <div class="tabs" role="tablist">
-              <button class="tab is-active" role="tab" data-tab="curl">curl</button>
-              <button class="tab" role="tab" data-tab="js">JavaScript</button>
-              <button class="tab" role="tab" data-tab="py">Python</button>
-              <button class="copy" id="copyBtn" type="button">Copy</button>
+                <div class="dash-verdict">
+                  <span class="tick" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                  </span>
+                  <div>
+                    <strong>All fields matched</strong>
+                    <small>5 of 5 checks passed</small>
+                  </div>
+                </div>
+              </div>
             </div>
 
-            <div class="panel is-active" data-panel="curl">
-              <pre><code>curl -X POST <span class="api-base">http://localhost:5000</span>/api/verify \
-  -H "Content-Type: application/json" \
-  -d '{
+            <div class="dash dash-back" aria-hidden="true">
+              <div class="dash-bar">
+                <span class="dash-dots"><i></i><i></i><i></i></span>
+                <span class="dash-title">Mismatch</span>
+                <span class="dash-code-bad">400</span>
+              </div>
+              <div class="dash-body">
+                <div class="dash-verdict dash-verdict-bad">
+                  <span class="tick tick-bad" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                  </span>
+                  <div>
+                    <strong>Mismatch on amount</strong>
+                    <small>Expected 100 · Actual 999.00</small>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="shell">
+          <p class="hero-platforms-label">Supported providers</p>
+        </div>
+        <div class="marquee" aria-label="Supported providers">
+          <div class="marquee-track" id="marqueeTrack"></div>
+        </div>
+      </section>
+
+      <!-- ==================== stats ==================== -->
+      <section class="stats-band">
+        <div class="shell">
+          <div class="stats-head">
+            <h2>Built for real payment volume.</h2>
+            <p>
+              Every check runs against the provider's own receipt endpoint. No
+              cached receipts, no guessing.
+            </p>
+          </div>
+
+          <dl class="stats-grid">
+            <div class="stat">
+              <dt>Providers</dt>
+              <dd><span class="count" data-to="4">0</span></dd>
+              <p>Telebirr, CBE, BOA and Amhara Bank.</p>
+            </div>
+            <div class="stat">
+              <dt>Verified fields</dt>
+              <dd><span class="count" data-to="5">0</span></dd>
+              <p>Amount, recipient, account, date and status.</p>
+            </div>
+            <div class="stat">
+              <dt>Batch throughput</dt>
+              <dd><span class="count" data-to="10">0</span><small>×</small></dd>
+              <p>Receipts checked in parallel per request.</p>
+            </div>
+            <div class="stat">
+              <dt>Upstream timeout</dt>
+              <dd><span class="count" data-to="15">0</span><small>s</small></dd>
+              <p>So a slow bank never hangs your checkout.</p>
+            </div>
+          </dl>
+        </div>
+      </section>
+
+      <!-- ==================== code ==================== -->
+      <section class="section" id="api">
+        <div class="shell">
+          <div class="section-head">
+            <span class="kicker">Integration</span>
+            <h2>Verify from your app</h2>
+            <p>
+              POST a receipt reference, get a verdict. Receipt IDs and full
+              receipt URLs are both accepted, and the provider is auto-detected.
+            </p>
+          </div>
+
+          <div class="code-split">
+            <div class="code-panel">
+              <div class="code-head">
+                <div class="code-tabs" role="tablist">
+                  <button class="code-tab is-active" role="tab" data-tab="curl">curl</button>
+                  <button class="code-tab" role="tab" data-tab="node">Node</button>
+                  <button class="code-tab" role="tab" data-tab="python">Python</button>
+                  <button class="code-tab" role="tab" data-tab="php">PHP</button>
+                </div>
+                <button class="code-copy" id="copyBtn" type="button">Copy</button>
+              </div>
+
+              <div class="code-file">
+                <span id="codeFilename">terminal</span>
+              </div>
+
+              <div class="code-pane is-active" data-pane="curl">
+                <pre><code><span class="t-c"># One call, one verdict</span>
+curl -X POST <span class="t-url">http://localhost:5000</span>/api/verify \
+  -H <span class="t-s">"Content-Type: application/json"</span> \
+  -d <span class="t-s">'{
     "receipt": "CJP9OSP9WZ",
     "defaultVerification": true
-  }'</code></pre>
-            </div>
+  }'</span>
 
-            <div class="panel" data-panel="js">
-              <pre><code>const res = await fetch("<span class="api-base">http://localhost:5000</span>/api/verify", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
+<span class="t-c"># 200</span>
+<span class="t-p">{</span> <span class="t-k">"message"</span><span class="t-p">:</span> <span class="t-s">"The receipt 'CJP9OSP9WZ' is a valid receipt."</span> <span class="t-p">}</span></code></pre>
+              </div>
+
+              <div class="code-pane" data-pane="node">
+                <pre><code><span class="t-k">const</span> res = <span class="t-k">await</span> fetch(<span class="t-s">`${API}/api/verify`</span>, {
+  method: <span class="t-s">"POST"</span>,
+  headers: { <span class="t-s">"Content-Type"</span>: <span class="t-s">"application/json"</span> },
   body: JSON.stringify({
-    receipt: "CJP9OSP9WZ",
-    defaultVerification: true,
+    receipt: <span class="t-s">"CJP9OSP9WZ"</span>,
+    defaultVerification: <span class="t-k">true</span>,
   }),
 });
 
-const data = await res.json();
+<span class="t-k">const</span> data = <span class="t-k">await</span> res.json();
 
-if (res.ok) {
-  console.log(data.message); // genuine
-} else {
-  console.error(data.error); // "Mismatch on amount..."
-}</code></pre>
-            </div>
+<span class="t-k">if</span> (!res.ok) {
+  <span class="t-c">// "Mismatch on amount. Expected: 100, Actual: 999.00"</span>
+  <span class="t-k">throw new</span> Error(data.error);
+}
 
-            <div class="panel" data-panel="py">
-              <pre><code>import requests
+<span class="t-c">// Safe to fulfil the order</span>
+console.log(data.message);</code></pre>
+              </div>
+
+              <div class="code-pane" data-pane="python">
+                <pre><code><span class="t-k">import</span> requests
 
 res = requests.post(
-    "<span class="api-base">http://localhost:5000</span>/api/verify",
+    <span class="t-s">f"{API}/api/verify"</span>,
     json={
-        "receipt": "CJP9OSP9WZ",
-        "defaultVerification": True,
+        <span class="t-s">"receipt"</span>: <span class="t-s">"CJP9OSP9WZ"</span>,
+        <span class="t-s">"defaultVerification"</span>: <span class="t-k">True</span>,
     },
-    timeout=30,
+    timeout=<span class="t-n">30</span>,
 )
 
-if res.ok:
-    print(res.json()["message"])
-else:
-    print("Rejected:", res.json()["error"])</code></pre>
+<span class="t-k">if</span> <span class="t-k">not</span> res.ok:
+    <span class="t-c"># Reject the order — do not hand over goods</span>
+    <span class="t-k">raise</span> ValueError(res.json()[<span class="t-s">"error"</span>])
+
+<span class="t-k">print</span>(res.json()[<span class="t-s">"message"</span>])</code></pre>
+              </div>
+
+              <div class="code-pane" data-pane="php">
+                <pre><code><span class="t-p">&lt;?php</span>
+<span class="t-v">$ch</span> = curl_init(<span class="t-s">"$apiBase/api/verify"</span>);
+
+curl_setopt_array(<span class="t-v">$ch</span>, [
+  CURLOPT_POST           => <span class="t-k">true</span>,
+  CURLOPT_RETURNTRANSFER => <span class="t-k">true</span>,
+  CURLOPT_HTTPHEADER     => [<span class="t-s">"Content-Type: application/json"</span>],
+  CURLOPT_POSTFIELDS     => json_encode([
+    <span class="t-s">"receipt"</span>             => <span class="t-s">"CJP9OSP9WZ"</span>,
+    <span class="t-s">"defaultVerification"</span> => <span class="t-k">true</span>,
+  ]),
+]);
+
+<span class="t-v">$body</span>   = json_decode(curl_exec(<span class="t-v">$ch</span>), <span class="t-k">true</span>);
+<span class="t-v">$status</span> = curl_getinfo(<span class="t-v">$ch</span>, CURLINFO_HTTP_CODE);
+
+<span class="t-k">if</span> (<span class="t-v">$status</span> !== <span class="t-n">200</span>) {
+  <span class="t-k">throw new</span> Exception(<span class="t-v">$body</span>[<span class="t-s">"error"</span>]);
+}</code></pre>
+              </div>
+            </div>
+
+            <aside class="code-aside">
+              <h3>What you get back</h3>
+              <ul class="checklist">
+                <li><strong>200</strong> — every enabled field matched</li>
+                <li><strong>400</strong> — a field mismatched, with both values</li>
+                <li><strong>404</strong> — receipt not found upstream</li>
+                <li><strong>502 / 504</strong> — bank unreachable or timed out</li>
+              </ul>
+              <p class="aside-note">
+                Failures are separate from outages on purpose. A bank being down
+                must never read as a customer's payment being fake.
+              </p>
+            </aside>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== modes ==================== -->
+      <section class="section section-alt" id="modes">
+        <div class="shell">
+          <div class="section-head">
+            <span class="kicker">Verification modes</span>
+            <h2>Single checks and batch runs</h2>
+            <p>
+              Both modes use the same validator, so a batch result is exactly as
+              strict as a single one.
+            </p>
+          </div>
+
+          <div class="modes">
+            <article class="mode-card">
+              <span class="mode-index">01</span>
+              <h3>Single verification</h3>
+              <p>
+                Check one receipt in real time. Ideal for confirming payment
+                before you hand over goods or unlock access.
+              </p>
+              <div class="mode-meta">
+                <span>POST /api/verify</span>
+                <span>Field-level control</span>
+              </div>
+            </article>
+
+            <article class="mode-card">
+              <span class="mode-index">02</span>
+              <h3>Batch verification</h3>
+              <p>
+                Submit many references at once. Every item gets its own result,
+                so one bad receipt never hides the others.
+              </p>
+              <div class="mode-meta">
+                <span>POST /api/verify/batch</span>
+                <span>Concurrent, up to 10</span>
+              </div>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== live verifier ==================== -->
+      <section class="section section-verify" id="verify">
+        <div class="shell">
+          <div class="section-head">
+            <span class="kicker">Try it now</span>
+            <h2>Run a verification</h2>
+            <p>
+              This is the real API, not a demo mock. Results are checked against
+              the expected values configured in your <code>.env</code>.
+            </p>
+          </div>
+
+          <div class="demo-banner" id="demoBanner" hidden>
+            <span class="demo-dot" aria-hidden="true"></span>
+            <div>
+              <strong>Demo mode is on.</strong> Receipts resolve to synthetic
+              data — nothing is sent to a bank. Unset <code>DEMO_MODE</code> for
+              real checks.
             </div>
           </div>
 
-          <aside class="quickstart">
-            <h3>Quickstart</h3>
-            <ol class="steps">
-              <li>
-                <span class="step-n">1</span>
-                <div>
-                  <strong>Clone and install</strong>
-                  <pre class="mini"><code>git clone https://github.com/esknder12/Ethio-rec-verifier.git
-cd Ethio-rec-verifier
-npm install</code></pre>
+          <div class="verify-grid">
+            <div class="panel">
+              <label class="field">
+                <span class="field-label">Receipt ID or URL</span>
+                <textarea
+                  id="receiptInput"
+                  rows="4"
+                  spellcheck="false"
+                  placeholder="CJP9OSP9WZ&#10;https://cs.bankofabyssinia.com/slip/?trx=FT25284X11PS79328"
+                ></textarea>
+                <span class="field-hint">One per line to run a batch.</span>
+              </label>
+
+              <fieldset class="field">
+                <legend class="field-label">Fields to check</legend>
+                <div class="segmented" role="radiogroup">
+                  <label class="seg">
+                    <input type="radio" name="mode" value="all" checked />
+                    <span>All configured</span>
+                  </label>
+                  <label class="seg">
+                    <input type="radio" name="mode" value="custom" />
+                    <span>Choose fields</span>
+                  </label>
                 </div>
-              </li>
-              <li>
-                <span class="step-n">2</span>
-                <div>
-                  <strong>Set your expected values</strong>
-                  <pre class="mini"><code>cp example.env .env
-# then edit .env</code></pre>
+
+                <div class="checks" id="fieldChecks" hidden>
+                  <label class="check"><input type="checkbox" value="amount" checked /><span>amount</span></label>
+                  <label class="check"><input type="checkbox" value="status" checked /><span>status</span></label>
+                  <label class="check"><input type="checkbox" value="recipientName" checked /><span>recipientName</span></label>
+                  <label class="check"><input type="checkbox" value="accountNumber" checked /><span>accountNumber</span></label>
+                  <label class="check"><input type="checkbox" value="date" checked /><span>date</span></label>
                 </div>
-              </li>
-              <li>
-                <span class="step-n">3</span>
-                <div>
-                  <strong>Run it</strong>
-                  <pre class="mini"><code>npm start</code></pre>
-                </div>
-              </li>
-            </ol>
-            <p class="note">
-              A receipt only passes when every enabled field matches your
-              configured value exactly.
-            </p>
-          </aside>
+              </fieldset>
+
+              <label class="check check-inline">
+                <input type="checkbox" id="proxyToggle" />
+                <span>Route Telebirr through the proxy (<code>PROXY</code>)</span>
+              </label>
+
+              <div class="actions">
+                <button class="btn btn-primary" id="verifyBtn">Verify</button>
+                <button class="btn btn-ghost" id="clearBtn">Clear</button>
+              </div>
+            </div>
+
+            <div class="panel">
+              <div class="panel-head">
+                <h3>Result</h3>
+                <div class="summary" id="summary" hidden></div>
+              </div>
+
+              <div id="results" class="results">
+                <p class="empty">No verification run yet.</p>
+              </div>
+
+              <details id="rawWrap" class="raw" hidden>
+                <summary>Raw response</summary>
+                <pre id="rawOut"></pre>
+              </details>
+            </div>
+          </div>
+
+          <div class="catalog" id="catalogCard" hidden>
+            <div class="catalog-head">
+              <div>
+                <h3>Sample receipts</h3>
+                <p>Click a reference to load it, or run them all at once.</p>
+              </div>
+              <button class="btn btn-ghost btn-sm" id="runAllBtn">Run all</button>
+            </div>
+            <div class="table-scroll">
+              <table class="catalog-table">
+                <thead>
+                  <tr>
+                    <th>Receipt</th>
+                    <th>Provider</th>
+                    <th>Amount</th>
+                    <th>Recipient</th>
+                    <th>Date</th>
+                    <th>Expectation</th>
+                  </tr>
+                </thead>
+                <tbody id="catalogBody"></tbody>
+              </table>
+            </div>
+          </div>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <!-- ============ features ============ -->
-    <section class="section section-alt" id="features">
-      <div class="container">
-        <div class="section-head">
-          <h2>Why it is built this way</h2>
-          <p>Small, auditable and fast enough for checkout flows.</p>
-        </div>
-
-        <div class="grid grid-3">
-          <article class="feature">
-            <span class="feature-icon" aria-hidden="true">⚡</span>
-            <h3>Parallel batch verification</h3>
+      <!-- ==================== services ==================== -->
+      <section class="section section-alt" id="services">
+        <div class="shell">
+          <div class="section-head">
+            <span class="kicker">What it covers</span>
+            <h2>Everything needed to trust a payment</h2>
             <p>
-              Connection pooling and HTTP pipelining via <code>undici</code>,
-              with configurable concurrency. Roughly 10–15× faster than
-              sequential checks.
-            </p>
-          </article>
-
-          <article class="feature">
-            <span class="feature-icon" aria-hidden="true">🔍</span>
-            <h3>Field-level control</h3>
-            <p>
-              Check only what matters for a given payment — amount, recipient
-              name, account number, date, or transaction status.
-            </p>
-          </article>
-
-          <article class="feature">
-            <span class="feature-icon" aria-hidden="true">🛡️</span>
-            <h3>Typed and defensive</h3>
-            <p>
-              TypeScript throughout, explicit timeouts, and distinct error
-              classes so a bank outage never looks like a failed payment.
-            </p>
-          </article>
-
-          <article class="feature">
-            <span class="feature-icon" aria-hidden="true">🧪</span>
-            <h3>Offline demo mode</h3>
-            <p>
-              Exercise the whole pipeline with synthetic receipts when you have
-              no network or no real receipt to hand.
-            </p>
-          </article>
-
-          <article class="feature">
-            <span class="feature-icon" aria-hidden="true">🐳</span>
-            <h3>Docker ready</h3>
-            <p>
-              Multi-stage image, runs as a non-root user, configured entirely by
-              environment variables.
-            </p>
-          </article>
-
-          <article class="feature">
-            <span class="feature-icon" aria-hidden="true">🔓</span>
-            <h3>MIT licensed</h3>
-            <p>
-              Clone it, fork it, ship it inside your own product. No keys, no
-              accounts, no per-call pricing.
-            </p>
-          </article>
-        </div>
-      </div>
-    </section>
-
-    <!-- ============ demo catalog ============ -->
-    <section class="section" id="catalogCard" hidden>
-      <div class="container">
-        <div class="section-head section-head-row">
-          <div>
-            <h2>Demo receipts</h2>
-            <p>
-              Offline samples for exercising the API. Click one to load it, or
-              run them all at once.
+              The project is deliberately small: verify, compare, report. No
+              settlement, no custody, no hidden state.
             </p>
           </div>
-          <button class="btn btn-outline" id="runAllBtn">Verify all</button>
-        </div>
 
-        <div class="table-wrap card card-flush">
-          <table class="catalog-table">
-            <thead>
-              <tr>
-                <th>Receipt ID</th>
-                <th>Provider</th>
-                <th>Amount</th>
-                <th>Recipient</th>
-                <th>Date</th>
-                <th>Expected</th>
-              </tr>
-            </thead>
-            <tbody id="catalogBody"></tbody>
-          </table>
+          <ol class="services">
+            <li>
+              <span class="svc-num">01</span>
+              <div>
+                <h3>Verify payments</h3>
+                <p>
+                  Fetch the receipt straight from the provider's own endpoint
+                  and compare it against your expected values.
+                </p>
+                <span class="svc-tags">Receipt IDs, receipt URLs, auto-detection</span>
+              </div>
+            </li>
+            <li>
+              <span class="svc-num">02</span>
+              <div>
+                <h3>Batch checks</h3>
+                <p>
+                  Run many references together with connection pooling and
+                  bounded concurrency, and review each item's outcome.
+                </p>
+                <span class="svc-tags">Connection pooling, configurable limit</span>
+              </div>
+            </li>
+            <li>
+              <span class="svc-num">03</span>
+              <div>
+                <h3>Field-level control</h3>
+                <p>
+                  Verify only what matters for a given payment — amount,
+                  recipient, account number, date, or transaction status.
+                </p>
+                <span class="svc-tags">Exact amounts, case-insensitive names</span>
+              </div>
+            </li>
+            <li>
+              <span class="svc-num">04</span>
+              <div>
+                <h3>Honest failures</h3>
+                <p>
+                  Provider outages and receipt mismatches are distinct errors,
+                  so you can retry instead of wrongly rejecting a customer.
+                </p>
+                <span class="svc-tags">400, 404, 502, 504</span>
+              </div>
+            </li>
+          </ol>
         </div>
-      </div>
-    </section>
+      </section>
+
+      <!-- ==================== platforms ==================== -->
+      <section class="section" id="platforms">
+        <div class="shell">
+          <div class="section-head">
+            <span class="kicker">Provider coverage</span>
+            <h2>One surface for the rails your buyers use</h2>
+            <p>
+              Pass whatever the customer gives you — a short reference, a long
+              receipt number, or a full receipt URL.
+            </p>
+          </div>
+
+          <div class="platforms">
+            <article class="platform">
+              <span class="pm pm-telebirr">T</span>
+              <div>
+                <h3>Telebirr</h3>
+                <p>Ethio Telecom mobile wallet. Status is verified here.</p>
+                <code>CJP9OSP9WZ</code>
+              </div>
+            </article>
+            <article class="platform">
+              <span class="pm pm-cbe">CBE</span>
+              <div>
+                <h3>Commercial Bank of Ethiopia</h3>
+                <p>Branch receipts (PDF) and mobile receipts (JSON).</p>
+                <code>FT253183LQF089873510</code>
+              </div>
+            </article>
+            <article class="platform">
+              <span class="pm pm-boa">BOA</span>
+              <div>
+                <h3>Bank of Abyssinia</h3>
+                <p>Online slip lookup. Dates parsed as <code>MM/DD/YY</code>.</p>
+                <code>FT25284X11PS79328</code>
+              </div>
+            </article>
+            <article class="platform">
+              <span class="pm pm-ab">AB</span>
+              <div>
+                <h3>Amhara Bank</h3>
+                <p>Transaction lookup by reference ID.</p>
+                <code>AMH123456789</code>
+              </div>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== deploy ==================== -->
+      <section class="section section-alt" id="deploy">
+        <div class="shell">
+          <div class="section-head">
+            <span class="kicker">Deploy</span>
+            <h2>Free, and yours to run</h2>
+            <p>
+              No accounts, no API keys, no usage metering. Clone it and run it on
+              your own infrastructure — your expected payment details never leave
+              your server.
+            </p>
+          </div>
+
+          <div class="deploy-grid">
+            <article class="deploy-card deploy-card-feature">
+              <h3>Self-hosted</h3>
+              <p class="deploy-price">MIT<span>licensed</span></p>
+              <ul class="checklist">
+                <li>Unlimited verifications</li>
+                <li>Unlimited batch runs</li>
+                <li>All four providers</li>
+                <li>Fee-free, no metering</li>
+                <li>Docker image included</li>
+                <li>Runs behind your firewall</li>
+              </ul>
+              <a class="btn btn-primary" href="#verify">Try the verifier</a>
+            </article>
+
+            <article class="deploy-card">
+              <h3>Quick start</h3>
+              <pre class="mini"><code>git clone https://github.com/esknder12/Ethio-rec-verifier.git
+cd Ethio-rec-verifier
+npm install
+
+cp example.env .env   <span class="t-c"># set your expected values</span>
+npm start             <span class="t-c"># compiles and runs</span></code></pre>
+              <p class="deploy-note">
+                Configure your expected amount, recipient name, account number
+                and payment month in <code>.env</code>. A receipt passes only
+                when every enabled field matches.
+              </p>
+              <div class="deploy-links">
+                <a href="#api">API reference</a>
+                <a
+                  href="https://github.com/esknder12/Ethio-rec-verifier"
+                  target="_blank"
+                  rel="noopener"
+                  >GitHub</a
+                >
+              </div>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== cta ==================== -->
+      <section class="cta">
+        <div class="cta-glow" aria-hidden="true"></div>
+        <div class="shell cta-inner">
+          <h2>Verify a payment now.</h2>
+          <p>
+            Run a check against the live API, then deploy the same code to your
+            own server when you are ready.
+          </p>
+          <div class="hero-cta">
+            <a class="btn btn-primary btn-lg" href="#verify">Verify a payment</a>
+            <a class="btn btn-ghost btn-lg" href="#api">Read the docs</a>
+          </div>
+        </div>
+      </section>
+    </main>
 
     <footer class="footer">
-      <div class="container footer-inner">
-        <div>
-          <strong>Ethio Rec Verifier</strong>
+      <div class="shell footer-top">
+        <div class="footer-brand">
+          <a class="logo" href="#top">
+            <span class="logo-mark" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M5 3h14v18l-2.5-1.6L14 21l-2-1.6L10 21l-2.5-1.6L5 21V3Z" />
+                <path d="M9 8h6M9 12h6M9 16h3" />
+              </svg>
+            </span>
+            <span class="logo-text">Ethio Rec Verifier</span>
+          </a>
           <p>
-            Verify Ethiopian payment receipts against your expected transaction
-            details.
+            Verification for Ethiopian payment flows. Open source, MIT licensed,
+            not affiliated with any bank listed.
           </p>
         </div>
-        <div class="footer-links">
-          <a href="#verifier">Verifier</a>
-          <a href="#api">API</a>
-          <a href="https://github.com/esknder12/Ethio-rec-verifier" target="_blank" rel="noopener">GitHub</a>
-          <a href="https://github.com/esknder12/Ethio-rec-verifier/blob/main/LICENCE" target="_blank" rel="noopener">Licence</a>
+
+        <div class="footer-cols">
+          <div>
+            <h4>Product</h4>
+            <a href="#verify">Verifier</a>
+            <a href="#modes">Batch checks</a>
+            <a href="#platforms">Providers</a>
+          </div>
+          <div>
+            <h4>Developers</h4>
+            <a href="#api">API reference</a>
+            <a href="#deploy">Quick start</a>
+            <a href="https://github.com/esknder12/Ethio-rec-verifier" target="_blank" rel="noopener">GitHub</a>
+          </div>
+          <div>
+            <h4>Legal</h4>
+            <a href="https://github.com/esknder12/Ethio-rec-verifier/blob/main/LICENCE" target="_blank" rel="noopener">MIT licence</a>
+            <a href="https://github.com/esknder12/Ethio-rec-verifier" target="_blank" rel="noopener">Source</a>
+          </div>
         </div>
       </div>
-      <div class="container footer-base">
-        <span>MIT licensed · Not affiliated with any bank listed.</span>
-        <span class="mono" id="apiHint">POST /api/verify · POST /api/verify/batch</span>
+
+      <div class="shell footer-base">
+        <span>© <span id="year">2026</span> Ethio Rec Verifier · Not affiliated with Telebirr, Ethio Telecom, CBE, Bank of Abyssinia or Amhara Bank.</span>
+        <span class="mono">POST /api/verify · POST /api/verify/batch</span>
       </div>
     </footer>
 

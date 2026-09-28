@@ -4,6 +4,11 @@
  */
 
 const $ = (id) => document.getElementById(id);
+const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
+
+/* ------------------------------------------------------------------
+   dom refs
+   ------------------------------------------------------------------ */
 
 const receiptInput = $("receiptInput");
 const verifyBtn = $("verifyBtn");
@@ -21,7 +26,178 @@ const catalogBody = $("catalogBody");
 let demoReceipts = [];
 
 /* ------------------------------------------------------------------
-   rendering helpers
+   nav
+   ------------------------------------------------------------------ */
+
+const initNav = () => {
+  const nav = $("nav");
+  const toggle = $("navToggle");
+  const drawer = $("navDrawer");
+  const announce = $("announce");
+
+  const onScroll = () => {
+    nav.classList.toggle("is-stuck", window.scrollY > 8);
+  };
+  onScroll();
+  window.addEventListener("scroll", onScroll, { passive: true });
+
+  toggle.addEventListener("click", () => {
+    const open = drawer.hidden;
+    drawer.hidden = !open;
+    toggle.setAttribute("aria-expanded", String(open));
+  });
+
+  for (const link of $$("a", drawer)) {
+    link.addEventListener("click", () => {
+      drawer.hidden = true;
+      toggle.setAttribute("aria-expanded", "false");
+    });
+  }
+
+  $("announceClose").addEventListener("click", () => {
+    announce.remove();
+    // Keep the sticky offset correct now that the bar is gone.
+    document.documentElement.style.scrollPaddingTop = "76px";
+  });
+
+  $("year").textContent = String(new Date().getFullYear());
+};
+
+/* ------------------------------------------------------------------
+   marquee
+   ------------------------------------------------------------------ */
+
+const PROVIDERS = [
+  { name: "Telebirr", mark: "T", cls: "pm-telebirr" },
+  { name: "CBE", mark: "CBE", cls: "pm-cbe" },
+  { name: "Bank of Abyssinia", mark: "BOA", cls: "pm-boa" },
+  { name: "Amhara Bank", mark: "AB", cls: "pm-ab" },
+  { name: "Telebirr", mark: "T", cls: "pm-telebirr" },
+  { name: "CBE", mark: "CBE", cls: "pm-cbe" },
+];
+
+const initMarquee = () => {
+  const track = $("marqueeTrack");
+
+  // Two identical runs, so the -50% keyframe loops seamlessly.
+  for (let pass = 0; pass < 2; pass++) {
+    for (const p of PROVIDERS) {
+      const item = document.createElement("span");
+      item.className = "mq-item";
+
+      const mark = document.createElement("span");
+      mark.className = `mq-mark ${p.cls}`;
+      mark.textContent = p.mark;
+
+      const name = document.createElement("span");
+      name.className = "mq-name";
+      name.textContent = p.name;
+
+      item.append(mark, name);
+      track.appendChild(item);
+    }
+  }
+};
+
+/* ------------------------------------------------------------------
+   counters
+   ------------------------------------------------------------------ */
+
+const initCounters = () => {
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const nodes = $$(".count");
+
+  const run = (el) => {
+    const to = Number(el.dataset.to ?? 0);
+    if (reduce) {
+      el.textContent = String(to);
+      return;
+    }
+
+    const duration = 900;
+    const start = performance.now();
+
+    const step = (now) => {
+      const t = Math.min((now - start) / duration, 1);
+      // easeOutCubic
+      const eased = 1 - Math.pow(1 - t, 3);
+      el.textContent = String(Math.round(to * eased));
+      if (t < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  };
+
+  if (!("IntersectionObserver" in window)) {
+    nodes.forEach(run);
+    return;
+  }
+
+  const io = new IntersectionObserver(
+    (entries) => {
+      for (const entry of entries) {
+        if (entry.isIntersecting) {
+          run(entry.target);
+          io.unobserve(entry.target);
+        }
+      }
+    },
+    { threshold: 0.6 },
+  );
+
+  nodes.forEach((el) => io.observe(el));
+};
+
+/* ------------------------------------------------------------------
+   code samples
+   ------------------------------------------------------------------ */
+
+const FILENAMES = {
+  curl: "terminal",
+  node: "verify-payment.mjs",
+  python: "verify_payment.py",
+  php: "verify-payment.php",
+};
+
+const initCode = () => {
+  const tabs = $$(".code-tab");
+  const panes = $$(".code-pane");
+  const filename = $("codeFilename");
+  const copyBtn = $("copyBtn");
+
+  // Show the visitor's own origin so the samples are copy-pasteable.
+  for (const el of $$(".t-url")) el.textContent = window.location.origin;
+
+  for (const tab of tabs) {
+    tab.addEventListener("click", () => {
+      for (const t of tabs) t.classList.toggle("is-active", t === tab);
+      for (const p of panes) {
+        p.classList.toggle("is-active", p.dataset.pane === tab.dataset.tab);
+      }
+      filename.textContent = FILENAMES[tab.dataset.tab] ?? "";
+    });
+  }
+
+  copyBtn.addEventListener("click", async () => {
+    const code = document.querySelector(".code-pane.is-active code");
+    if (!code) return;
+
+    const text = code.innerText.replace(
+      /http:\/\/localhost:5000/g,
+      window.location.origin,
+    );
+
+    try {
+      await navigator.clipboard.writeText(text);
+      copyBtn.textContent = "Copied";
+    } catch {
+      copyBtn.textContent = "Press ⌘C";
+    }
+    setTimeout(() => (copyBtn.textContent = "Copy"), 1600);
+  });
+};
+
+/* ------------------------------------------------------------------
+   verifier
    ------------------------------------------------------------------ */
 
 const clear = (node) => {
@@ -65,21 +241,12 @@ const addSummaryChip = (label, kind) => {
   summaryEl.appendChild(chip);
 };
 
-const showRaw = (payload) => {
-  rawWrap.hidden = false;
-  rawOut.textContent = JSON.stringify(payload, null, 2);
-};
-
-/* ------------------------------------------------------------------
-   request building
-   ------------------------------------------------------------------ */
-
 const buildVerification = () => {
   const mode = document.querySelector('input[name="mode"]:checked').value;
   if (mode === "all") return true;
 
   const flags = {};
-  for (const box of fieldChecks.querySelectorAll("input[type=checkbox]")) {
+  for (const box of $$("input[type=checkbox]", fieldChecks)) {
     if (box.checked) flags[box.value] = true;
   }
   return flags;
@@ -98,12 +265,8 @@ const postJson = async (url, body) => {
   } catch {
     payload = { error: `Unexpected non-JSON response (HTTP ${res.status})` };
   }
-  return { payload };
+  return payload;
 };
-
-/* ------------------------------------------------------------------
-   verification
-   ------------------------------------------------------------------ */
 
 const setBusy = (busy) => {
   verifyBtn.disabled = busy;
@@ -111,24 +274,6 @@ const setBusy = (busy) => {
   verifyBtn.innerHTML = busy
     ? '<span class="spinner"></span>Verifying…'
     : "Verify";
-};
-
-const renderBatch = (payload) => {
-  for (const item of payload.result ?? []) {
-    addResult(item, true, "Valid receipt.");
-  }
-  for (const item of payload.failed ?? []) {
-    addResult(item.receiptId, false, item.error);
-  }
-
-  if (payload.summary) {
-    summaryEl.hidden = false;
-    addSummaryChip(`total ${payload.summary.total}`, "pill-muted");
-    addSummaryChip(`valid ${payload.summary.valid}`, "pill-ok");
-    if (payload.summary.invalid > 0) {
-      addSummaryChip(`invalid ${payload.summary.invalid}`, "pill-demo");
-    }
-  }
 };
 
 const verify = async () => {
@@ -145,7 +290,7 @@ const verify = async () => {
   const verification = buildVerification();
   if (typeof verification === "object" && Object.keys(verification).length === 0) {
     resetResults(
-      "Pick at least one field to check, or switch to “All configured fields”.",
+      "Pick at least one field to check, or switch to “All configured”.",
     );
     return;
   }
@@ -161,23 +306,42 @@ const verify = async () => {
 
   try {
     if (lines.length === 1) {
-      const { payload } = await postJson("/api/verify", {
+      const payload = await postJson("/api/verify", {
         ...body,
         receipt: lines[0],
       });
+
       if (payload.error) {
         addResult(lines[0], false, payload.error);
       } else {
         addResult(lines[0], true, payload.message ?? "Valid receipt.");
       }
-      showRaw(payload);
+      rawWrap.hidden = false;
+      rawOut.textContent = JSON.stringify(payload, null, 2);
     } else {
-      const { payload } = await postJson("/api/verify/batch", {
+      const payload = await postJson("/api/verify/batch", {
         ...body,
         receipt: lines,
       });
-      renderBatch(payload);
-      showRaw(payload);
+
+      for (const item of payload.result ?? []) {
+        addResult(item, true, "Valid receipt.");
+      }
+      for (const item of payload.failed ?? []) {
+        addResult(item.receiptId, false, item.error);
+      }
+
+      if (payload.summary) {
+        summaryEl.hidden = false;
+        addSummaryChip(`total ${payload.summary.total}`, "pill-muted");
+        addSummaryChip(`valid ${payload.summary.valid}`, "pill-live");
+        if (payload.summary.invalid > 0) {
+          addSummaryChip(`invalid ${payload.summary.invalid}`, "pill-demo");
+        }
+      }
+
+      rawWrap.hidden = false;
+      rawOut.textContent = JSON.stringify(payload, null, 2);
     }
   } catch (err) {
     addResult("Request failed", false, err.message);
@@ -205,7 +369,7 @@ const renderCatalog = (receipts) => {
     idBtn.addEventListener("click", () => {
       receiptInput.value = r.id;
       receiptInput.focus();
-      receiptInput.scrollIntoView({ block: "center" });
+      receiptInput.scrollIntoView({ block: "center", behavior: "smooth" });
     });
     idTd.appendChild(idBtn);
 
@@ -248,7 +412,7 @@ const loadDemo = async () => {
     const pill = document.createElement("span");
     pill.className = "pill pill-demo";
     pill.textContent = "demo mode";
-    $("statusPills").appendChild(pill);
+    document.querySelector(".nav-actions").appendChild(pill);
   } catch {
     /* the demo catalog is optional */
   }
@@ -259,8 +423,12 @@ const loadHealth = async () => {
   try {
     const res = await fetch("/health");
     const data = await res.json();
-    pill.className = `pill ${data.status === "ok" ? "pill-ok" : "pill-muted"}`;
-    pill.textContent = `api ${data.status}`;
+    const ok = data.status === "ok";
+
+    pill.className = `pill ${ok ? "pill-live" : "pill-muted"}`;
+    pill.innerHTML = `<span class="pulse" aria-hidden="true"></span>${
+      ok ? "api online" : "api degraded"
+    }`;
   } catch {
     pill.className = "pill pill-muted";
     pill.textContent = "api unreachable";
@@ -268,72 +436,38 @@ const loadHealth = async () => {
 };
 
 /* ------------------------------------------------------------------
-   code samples
-   ------------------------------------------------------------------ */
-
-const initCodeTabs = () => {
-  const tabs = document.querySelectorAll(".tab");
-  const panels = document.querySelectorAll(".panel");
-
-  for (const tab of tabs) {
-    tab.addEventListener("click", () => {
-      for (const t of tabs) t.classList.toggle("is-active", t === tab);
-      for (const p of panels) {
-        p.classList.toggle("is-active", p.dataset.panel === tab.dataset.tab);
-      }
-    });
-  }
-
-  const copyBtn = $("copyBtn");
-  copyBtn?.addEventListener("click", async () => {
-    const active = document.querySelector(".panel.is-active code");
-    if (!active) return;
-
-    try {
-      await navigator.clipboard.writeText(active.innerText);
-      copyBtn.textContent = "Copied";
-    } catch {
-      copyBtn.textContent = "Copy failed";
-    }
-    setTimeout(() => (copyBtn.textContent = "Copy"), 1600);
-  });
-};
-
-const fillApiBase = () => {
-  const origin = window.location.origin;
-  for (const el of document.querySelectorAll(".api-base")) {
-    el.textContent = origin;
-  }
-};
-
-/* ------------------------------------------------------------------
    wiring
    ------------------------------------------------------------------ */
 
-for (const radio of document.querySelectorAll('input[name="mode"]')) {
-  radio.addEventListener("change", () => {
-    fieldChecks.hidden = radio.value !== "custom" || !radio.checked;
+const initVerifier = () => {
+  for (const radio of $$('input[name="mode"]')) {
+    radio.addEventListener("change", () => {
+      fieldChecks.hidden = radio.value !== "custom" || !radio.checked;
+    });
+  }
+
+  verifyBtn.addEventListener("click", verify);
+
+  clearBtn.addEventListener("click", () => {
+    receiptInput.value = "";
+    resetResults("No verification run yet.");
   });
-}
 
-verifyBtn.addEventListener("click", verify);
+  runAllBtn?.addEventListener("click", () => {
+    if (demoReceipts.length === 0) return;
+    receiptInput.value = demoReceipts.map((r) => r.id).join("\n");
+    verify();
+  });
 
-clearBtn.addEventListener("click", () => {
-  receiptInput.value = "";
-  resetResults("No verification run yet.");
-});
+  receiptInput.addEventListener("keydown", (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") verify();
+  });
+};
 
-runAllBtn?.addEventListener("click", () => {
-  if (demoReceipts.length === 0) return;
-  receiptInput.value = demoReceipts.map((r) => r.id).join("\n");
-  verify();
-});
-
-receiptInput.addEventListener("keydown", (e) => {
-  if ((e.metaKey || e.ctrlKey) && e.key === "Enter") verify();
-});
-
-fillApiBase();
-initCodeTabs();
+initNav();
+initMarquee();
+initCounters();
+initCode();
+initVerifier();
 loadHealth();
 loadDemo();
