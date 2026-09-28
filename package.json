@@ -1,16 +1,24 @@
 {
-  "name": "telebirr-payment-verifier",
+  "name": "ethio-rec-verifier",
   "version": "1.0.0",
   "type": "module",
-  "main": "index.js",
+  "main": "build/server.js",
   "scripts": {
-    "build": "npx tsc",
-    "start": "npx tsc && node build/server.js"
+    "build": "tsc",
+    "start": "tsc && node build/server.js",
+    "serve": "node build/server.js",
+    "dev": "tsc --watch"
   },
-  "keywords": [],
+  "keywords": [
+    "ethiopia",
+    "telebirr",
+    "cbe",
+    "payment-verification",
+    "receipt"
+  ],
   "author": "Abrham Yalew",
   "license": "MIT",
-  "description": "",
+  "description": "Verify Ethiopian payment receipts (Telebirr, CBE, BOA, Amhara Bank) against your expected transaction details.",
   "dependencies": {
     "cheerio": "^1.1.2",
     "cors": "^2.8.5",

@@ -5,6 +5,7 @@ import {
   UpstreamServiceError,
 } from "../utils/errorHandler.js";
 import { Pool, ProxyAgent, request } from "undici";
+import { getDemoReceiptData, isDemoModeEnabled } from "../demo/offlineTransport.js";
 import type { boaParsedData } from "../types/validationType.js";
 import type {
   AmharaBankApiResponse,
@@ -167,6 +168,12 @@ export const getReceiptData = async (
   options?: ReceiptRequestOptions,
 ): Promise<ReceiptData | undefined> => {
   try {
+    if (isDemoModeEnabled()) {
+      // DEMO ONLY — returns a synthetic payload and never touches the network.
+      // See demo/README.md.
+      return await getDemoReceiptData(receiptId);
+    }
+
     if (/^[A-Z0-9]{10}$/.test(receiptId)) {
       // Telebirr
       const path = `/receipt/${receiptId}`;
