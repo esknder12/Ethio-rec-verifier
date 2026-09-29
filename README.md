@@ -1,8 +1,12 @@
 # Ethiopian Payment Receipt Verifier
 
-Verify payment receipts from Telebirr, CBE, and Bank of Abyssinia against your expected transaction details. This is useful for automating payment verification in e-commerce platforms, subscription services, or any system that accepts Ethiopian digital payments.
+Verify payment receipts from Telebirr, CBE, Bank of Abyssinia and Amhara Bank
+against your expected transaction details. Useful for automating payment
+verification in e-commerce platforms, subscription services, or any system that
+accepts Ethiopian digital payments.
 
-Ideal for startup SaaS applications that need a simple, reliable way to verify payments just clone or integrate the code into your project and start using it immediately.
+Clone it or integrate the code into your project and start using it immediately.
+Comes with a small web dashboard for manual checks and batch runs.
 
 ## Currently Supported Banks and Wallets
 
@@ -23,12 +27,18 @@ Ideal for startup SaaS applications that need a simple, reliable way to verify p
 ## Setup
 
 ```bash
-git clone https://github.com/abrhamyalew/telebirr-payment-verifier.git
-cd telebirr-payment-verifier
+git clone https://github.com/esknder12/Ethio-rec-verifier.git
+cd Ethio-rec-verifier
 npm install
+cp example.env .env   # then edit .env with YOUR expected values
+npm start
 ```
 
-Create `.env` with your expected payment details:
+`npm start` compiles TypeScript and boots the server on port 5000. Open
+<http://localhost:5000> for the dashboard.
+
+`example.env` documents every variable. **Ensure that all expected data matches
+the receipt exactly in format and content.**
 
 ### Telebirr Configuration
 
@@ -43,12 +53,9 @@ TELEBIRR_EXPECTED_PAYMENT_MONTH=12
 TELEBIRR_EXPECTED_STATUS=Completed
 ```
 
-**Ensure that all expected data matches the receipt exactly in format and content.**
-**`PROXY` is only used when request body includes `"proxy": true` for Telebirr verification.**
+**`PROXY` is only used when the request body includes `"proxy": true` for Telebirr verification.**
 
 ### CBE Receipt Configuration
-
-Add these variables to your `.env` for CBE verification:
 
 ```env
 CBE_EXPECTED_AMOUNT=40
@@ -58,9 +65,11 @@ CBE_EXPECTED_PAYMENT_YEAR=2025
 CBE_EXPECTED_PAYMENT_MONTH=12
 ```
 
-### BOA (Bank of Abyssinia) Configuration
+CBE has two receipt formats, both supported: branch receipts (PDF, served from
+`apps.cbe.com.et`) and mobile receipts (JSON, identified by a `-` before the
+last eight digits).
 
-Add these variables to your `.env` for BOA verification:
+### BOA (Bank of Abyssinia) Configuration
 
 ```env
 BOA_EXPECTED_AMOUNT=200
@@ -70,9 +79,9 @@ BOA_EXPECTED_PAYMENT_YEAR=25
 BOA_EXPECTED_PAYMENT_MONTH=10
 ```
 
-### Amhara Bank Configuration
+BOA dates are `MM/DD/YY`, so `BOA_EXPECTED_PAYMENT_YEAR` is two digits.
 
-Add these variables to your `.env` for Amhara Bank verification:
+### Amhara Bank Configuration
 
 ```env
 AB_EXPECTED_AMOUNT=25
@@ -82,9 +91,46 @@ AB_EXPECTED_PAYMENT_YEAR=2026
 AB_EXPECTED_PAYMENT_MONTH=01
 ```
 
+### Server Configuration
+
+```env
+PORT=5000
+DEMO_MODE=false            # never enable in production — see "Demo mode"
+TRUST_PROXY=1              # hops to trust for client IP detection
+RATE_LIMIT_ENABLED=true
+RATE_LIMIT_MAX=300         # requests per window
+RATE_LIMIT_WINDOW_MS=900000
+```
+
+## Dashboard
+
+With the server running, open <http://localhost:5000>. It supports single and
+batch verification, per-field check selection, and shows the raw JSON response.
+It is a thin client over the same public API — nothing it does is unavailable
+over HTTP.
+
+## Demo mode
+
+Because the verifier depends on live bank endpoints, it cannot be exercised
+offline. Setting `DEMO_MODE=true` swaps the **network call** for a synthetic
+payload while leaving every parser, validator and controller untouched, so the
+whole pipeline still runs — including the mismatch messages.
+
+```bash
+DEMO_MODE=true npm start
+```
+
+Or set `DEMO_MODE=true` in `.env` and start normally. The server prints a
+warning banner and the dashboard shows one too.
+
+**Demo mode never verifies a real receipt.** It is a development aid; leave it
+off in production. See [`demo/README.md`](demo/README.md) for the catalog of
+sample receipts and their known gaps.
+
 ## Docker
 
-Use Docker when you want reproducible deployment across machines (same Node version, same dependencies, same build output).
+Use Docker when you want reproducible deployment across machines (same Node
+version, same dependencies, same build output).
 
 ### Build the image
 
@@ -118,6 +164,15 @@ Supports both query-param based and path-based URLs, as well as standalone IDs.
 }
 ```
 
+**Option B: Using Full URL**
+
+```json
+{
+  "receipt": "https://apps.cbe.com.et:100/BranchReceipt/FT25292FRPWD&89873710",
+  "defaultVerification": true
+}
+```
+
 **Option C: Telebirr With Proxy Enabled**
 
 ```json
@@ -128,22 +183,13 @@ Supports both query-param based and path-based URLs, as well as standalone IDs.
 }
 ```
 
-**Option B: Using Full URL**
-
-```json
-{
-  "receipt": "https://apps.cbe.com.et:100/BranchReceipt/FT25292FRPWD&89873710",
-  "defaultVerification": true
-}
-```
-
 ### 2. Custom Field Verification
 
 Select specific fields to verify for any receipt type:
 
 ```json
 {
-  "receipt": "FT253W23LQF089173710",
+  "receipt": "FT253183LQF089873510",
   "defaultVerification": {
     "amount": true,
     "recipientName": true,
@@ -156,13 +202,24 @@ Select specific fields to verify for any receipt type:
 _Note: `status` verification is skipped for CBE and BOA receipts as it's not explicitly present._
 _Note: `proxy` is Telebirr-only. If omitted or `false`, direct request mode is used._
 
+### 3. Health Check
+
+**GET** `http://localhost:5000/health`
+
+```json
+{
+  "status": "ok",
+  "demoMode": false,
+  "rateLimitEnabled": true,
+  "uptimeSeconds": 128
+}
+```
 
 ## Batch Receipt Verification
 
 Verify multiple Telebirr, CBE, and BOA receipts in a single request.
 
 **POST** `http://localhost:5000/api/verify/batch`
-
 
 **Request:**
 
@@ -180,16 +237,16 @@ _For batch requests, `proxy` must be a boolean when provided. Proxy is applied o
 
 ```json
 {
-  "validReceipts": ["FT24838X11PS82079", "FT25284X11PS79328"],
-  "failedReceipts": [
+  "result": ["CJP9OSP9WZ", "FT25284X11PS79328"],
+  "failed": [
     {
-      "receiptId": "https://cs.bankofabyssinia.com/slip/?trx=FT25284X11PS79328",
-      "error": "Mismatch on amount. Expected: 100, Actual: 40.00"
+      "receiptId": "FT25284X11PS79329",
+      "error": "Mismatch on recipientName. Expected: TEWODROS HULGIZIE TEMESGEN, Actual: TEWODROS HULGIZIE TEMES"
     }
   ],
   "summary": {
-    "total": 2,
-    "valid": 1,
+    "total": 3,
+    "valid": 2,
     "invalid": 1
   }
 }
@@ -227,7 +284,7 @@ export default {
 
 ```json
 {
-  "message": "The receipt 'CJP9OSP9W' is a valid receipt."
+  "message": "The receipt 'CJP9OSP9WZ' is a valid receipt."
 }
 ```
 
@@ -235,7 +292,7 @@ export default {
 
 ```json
 {
-  "error": "Mismatch on amount. Expected: 85, Actual: 100"
+  "error": "Mismatch on amount. Expected: 100, Actual: 999.00"
 }
 ```
 
@@ -248,3 +305,20 @@ export default {
 | `recipientName` | Recipient name matches                  |
 | `accountNumber` | Recipient account number                |
 | `date`          | Payment happened in expected year/month |
+
+## Project Structure
+
+```
+config/       expected values and tunables
+controllers/  request handling, provider dispatch
+demo/         offline synthetic fixtures (DEMO_MODE only)
+routes/       express routers
+services/     upstream HTTP client + batch processor
+utils/        receipt ID/URL parsers, error types
+validators/   per-provider field extraction and comparison
+public/       dashboard (static, no build step)
+```
+
+## Licence
+
+MIT — see [LICENCE](LICENCE).
